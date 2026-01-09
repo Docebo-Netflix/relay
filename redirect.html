@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Redirecting…</title>
+</head>
+<body>
+<script>
+(() => {
+  // --- 1) Params Docebo appends to the Iframe URL (Advanced Settings) ---
+  const qs = new URLSearchParams(location.search);
+  const userId   = qs.get('user_id')   || '';
+  const username = qs.get('username')  || '';
+  const authCode = qs.get('auth_code') || ''; // optional; useful later if you want email via API
+  const hash     = qs.get('hash')      || '';
+
+  // --- 2) Pull dest + act off the Docebo redirect page URL via referrer ---
+  const ref = document.referrer || '';
+  let dest = '';
+  let act  = 'unknown_click';
+
+  try {
+    if (ref) {
+      const refUrl = new URL(ref);
+      dest = refUrl.searchParams.get('dest') || '';
+      act  = refUrl.searchParams.get('act')  || act;
+    }
+  } catch (_) {}
+
+  // Safety: only allow http(s) redirect destinations
+  const safeDest = /^https?:\/\//i.test(dest) ? dest : '';
+
+  // --- 3) Build payload for your relay backend ---
+  // Adjust shape/fields to match what your /track endpoint expects if needed.
+  const payload = {
+    type: "hub_redirect_click",
+    timestamp: new Date().toISOString(),
+    actor: {
+      user_id: userId,
+      username: username
+    },
+    action: act,
+    destination: safeDest,
+    context: {
+      referrer: ref,
+      auth_code_present: !!authCode,
+      hash_present: !!hash
+    }
+  };
+
+  const RELAY_ENDPOINT = "https://xapi-tracking.onrender.com/track";
+
+  // --- 4) Send tracking, then redirect immediately ---
+  // sendBeacon is ideal for fast redirects (no custom headers).
+  let sent = false;
+  try {
+    sent = navigator.sendBeacon(
+      RELAY_ENDPOINT,
+      new Blob([JSON.stringify(payload)], { type: "application/json" })
+    );
+  } catch (_) {}
+
+  if (!sent) {
+    // Fallback if sendBeacon isn't available/blocked
+    fetch(RELAY_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(() => {});
+  }
+
+  // Redirect (replace avoids back-button loops)
+  if (safeDest) {
+    window.top.location.replace(safeDest);
+  } else {
+    document.body.innerText = "Missing/unsafe destination URL.";
+  }
+})();
+</script>
+</body>
+</html>
