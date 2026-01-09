@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Redirecting…</title>
+</head>
+<body>
+<script>
+(() => {
+  // 1) Docebo Iframe widget (Advanced Settings) appends these to the iframe URL
+  const qs = new URLSearchParams(location.search);
+  const userId = qs.get('user_id') || '';
+  const username = qs.get('username') || '';
+  const authCode = qs.get('auth_code') || ''; // optional; useful later if you need email lookup
+  const hash = qs.get('hash') || '';
+
+  // 2) The Docebo "Tracking Redirect" page passes dest + act in its own querystring.
+  // We read that redirect page URL via referrer.
+  const ref = document.referrer || '';
+  let dest = '';
+  let act = 'unknown_click';
+
+  try {
+    if (ref) {
+      const refUrl = new URL(ref);
+      dest = refUrl.searchParams.get('dest') || '';
+      act  = refUrl.searchParams.get('act') || act;
+    }
+  } catch (_) {}
+
+  // Safety: only allow http(s) dest
+  const safeDest = /^https?:\/\//i.test(dest) ? dest : '';
+
+  // 3) Build a minimal xAPI-ish payload for your existing relay endpoint
+  //    (match whatever your /track expects — adjust field names if needed)
+  const payload = {
+    type: "hub_click",
+    timestamp: new Date().toISOString(),
+    actor: {
+      user_id: userId,
+      username: username
+      // email can be added later if you can reliably resolve it
+    },
+    action: act,
+    destination: safeDest,
+    context: {
+      referrer: ref,
+      auth_code_present: !!authCode,
+      hash_present: !!hash
+    }
+  };
+
+  const RELAY_ENDPOINT = "https://xapi-tracking.onrender.com/track";
+
+  // 4) Send tracking first, then redirect immediately.
+  // sendBeacon is best for redirects (no headers though).
+  let sent = false;
+  try {
+    sent = navigator.sendBeacon(
+      RELAY_ENDPOINT,
+      new Blob([JSON.stringify(payload)], { type: "application/json" })
+    );
+  } catch (_) {}
+
+  if (!sent) {
+    // Fallback: fetch with keepalive (still usually works during redirects)
+    fetch(RELAY_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(() => {});
+  }
+
+  // Redirect (replace avoids back-button loop)
+  if (safeDest) {
+    window.top.location.replace(safeDest);
+  } else {
+    document.body.innerText = "Missing/unsafe destination URL.";
+  }
+})();
+</script>
+</body>
+</html>
