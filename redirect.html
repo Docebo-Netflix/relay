@@ -8,42 +8,42 @@
 <body>
 <script>
 (() => {
-  // --- 1) Params Docebo appends to the Iframe URL (Advanced Settings) ---
   const qs = new URLSearchParams(location.search);
+
+  // ✅ 1) Get dest/act from THIS URL (reliable)
+  let dest = qs.get('dest') || '';
+  let act  = qs.get('act')  || 'unknown_click';
+
+  // 2) Identity that Docebo appends (Advanced Settings)
   const userId   = qs.get('user_id')   || '';
   const username = qs.get('username')  || '';
-  const authCode = qs.get('auth_code') || ''; // optional; useful later if you want email via API
+  const authCode = qs.get('auth_code') || '';
   const hash     = qs.get('hash')      || '';
 
-  // --- 2) Pull dest + act off the Docebo redirect page URL via referrer ---
-  const ref = document.referrer || '';
-  let dest = '';
-  let act  = 'unknown_click';
+  // (Optional) fallback: try referrer if dest wasn’t passed
+  if (!dest) {
+    try {
+      const ref = document.referrer || '';
+      if (ref) {
+        const refUrl = new URL(ref);
+        dest = refUrl.searchParams.get('dest') || dest;
+        act  = refUrl.searchParams.get('act')  || act;
+      }
+    } catch (_) {}
+  }
 
-  try {
-    if (ref) {
-      const refUrl = new URL(ref);
-      dest = refUrl.searchParams.get('dest') || '';
-      act  = refUrl.searchParams.get('act')  || act;
-    }
-  } catch (_) {}
-
-  // Safety: only allow http(s) redirect destinations
+  // Safety: only allow http(s)
   const safeDest = /^https?:\/\//i.test(dest) ? dest : '';
 
-  // --- 3) Build payload for your relay backend ---
-  // Adjust shape/fields to match what your /track endpoint expects if needed.
   const payload = {
     type: "hub_redirect_click",
     timestamp: new Date().toISOString(),
-    actor: {
-      user_id: userId,
-      username: username
-    },
+    actor: { user_id: userId, username },
     action: act,
     destination: safeDest,
     context: {
-      referrer: ref,
+      href: location.href,
+      referrer: document.referrer || '',
       auth_code_present: !!authCode,
       hash_present: !!hash
     }
@@ -51,8 +51,7 @@
 
   const RELAY_ENDPOINT = "https://xapi-tracking.onrender.com/track";
 
-  // --- 4) Send tracking, then redirect immediately ---
-  // sendBeacon is ideal for fast redirects (no custom headers).
+  // send tracking
   let sent = false;
   try {
     sent = navigator.sendBeacon(
@@ -62,7 +61,6 @@
   } catch (_) {}
 
   if (!sent) {
-    // Fallback if sendBeacon isn't available/blocked
     fetch(RELAY_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,11 +69,12 @@
     }).catch(() => {});
   }
 
-  // Redirect (replace avoids back-button loops)
+  // redirect
   if (safeDest) {
     window.top.location.replace(safeDest);
   } else {
-    document.body.innerText = "Missing/unsafe destination URL.";
+    document.body.innerText =
+      "Missing/unsafe destination URL. Pass ?dest=https%3A%2F%2Fexample.com&act=hub_click";
   }
 })();
 </script>
