@@ -2,80 +2,142 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Redirecting…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 img-src 'self' data:;
+                 style-src 'self' 'unsafe-inline';
+                 script-src 'self';
+                 connect-src 'self' https:;
+                 frame-ancestors *;">
+  <style>
+    body { margin:0; font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0b0c10; color:#e8eef5; }
+    .wrap { max-width: 860px; margin: 40px auto; padding: 0 16px; }
+    .muted { color:#9aa4b2; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .box { background:#11141a; border:1px solid #1e2633; border-radius:14px; padding:16px; }
+    a { color:#93c5fd; }
+  </style>
 </head>
 <body>
+  <div class="wrap">
+    <div class="box">
+      <div><strong>Redirecting…</strong></div>
+      <div class="muted">If you are not redirected automatically, use the link below.</div>
+      <div style="margin-top:10px">
+        <a id="fallbackLink" href="#" rel="noopener noreferrer">Continue</a>
+      </div>
+
+      <div id="debug" style="margin-top:14px; display:none;">
+        <hr style="border:0;border-top:1px solid #1e2633;margin:14px 0">
+        <div class="muted">Debug</div>
+        <pre class="mono" id="debugPre"></pre>
+      </div>
+    </div>
+  </div>
+
 <script>
-(() => {
-  const qs = new URLSearchParams(location.search);
-
-  // ✅ 1) Get dest/act from THIS URL (reliable)
-  let dest = qs.get('dest') || '';
-  let act  = qs.get('act')  || 'unknown_click';
-
-  // 2) Identity that Docebo appends (Advanced Settings)
-  const userId   = qs.get('user_id')   || '';
-  const username = qs.get('username')  || '';
-  const authCode = qs.get('auth_code') || '';
-  const hash     = qs.get('hash')      || '';
-
-  // (Optional) fallback: try referrer if dest wasn’t passed
-  if (!dest) {
-    try {
-      const ref = document.referrer || '';
-      if (ref) {
-        const refUrl = new URL(ref);
-        dest = refUrl.searchParams.get('dest') || dest;
-        act  = refUrl.searchParams.get('act')  || act;
-      }
-    } catch (_) {}
-  }
-
-  // Safety: only allow http(s)
-  const safeDest = /^https?:\/\//i.test(dest) ? dest : '';
-
-  const payload = {
-    type: "hub_redirect_click",
-    timestamp: new Date().toISOString(),
-    actor: { user_id: userId, username },
-    action: act,
-    destination: safeDest,
-    context: {
-      href: location.href,
-      referrer: document.referrer || '',
-      auth_code_present: !!authCode,
-      hash_present: !!hash
-    }
-  };
-
+(function(){
+  // IMPORTANT: this is your relay (Render). Do NOT point this at Watershed directly.
   const RELAY_ENDPOINT = "https://xapi-tracking.onrender.com/track";
 
-  // send tracking
-  let sent = false;
-  try {
-    sent = navigator.sendBeacon(
-      RELAY_ENDPOINT,
-      new Blob([JSON.stringify(payload)], { type: "application/json" })
-    );
-  } catch (_) {}
+  const params = new URLSearchParams(location.search);
+  const dest = params.get("dest") || "https://netflixsandbox.docebosaas.com/";
+  const act = params.get("act") || "hub_asset_click";
+  const aid = params.get("aid") || "https://docebo-netflix.github.io/xapi-tracking/";
+  const debug = params.get("debug") === "1";
 
-  if (!sent) {
-    fetch(RELAY_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      keepalive: true
-    }).catch(() => {});
+  // Identity sources:
+  // 1) Docebo signed iframe params (if present)
+  // 2) explicit query params (for testing only)
+  // Note: email is often NOT provided by Docebo; use user_id/username as primary.
+  const user_id = params.get("user_id") || "";
+  const username = params.get("username") || "";
+  const email = params.get("email") || "";
+
+  const actor = { user_id, username, email };
+
+  // Show fallback link immediately
+  const link = document.getElementById("fallbackLink");
+  link.href = dest;
+
+  function showDebug(obj) {
+    if (!debug) return;
+    document.getElementById("debug").style.display = "block";
+    document.getElementById("debugPre").textContent = JSON.stringify(obj, null, 2);
   }
 
-  // redirect
-  if (safeDest) {
-    window.top.location.replace(safeDest);
-  } else {
-    document.body.innerText =
-      "Missing/unsafe destination URL. Pass ?dest=https%3A%2F%2Fexample.com&act=hub_click";
+  // Build payload (lightweight)
+  const payload = {
+    type: "docebo_hub_redirect",
+    verb: "interacted",
+    action: act,
+    activity_id: aid,
+    destination: dest,
+    referrer: document.referrer || "",
+    actor,
+    context: {
+      page_url: location.href,
+      user_agent: navigator.userAgent
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  // Post as fast as possible then redirect
+  // Strategy:
+  // - try sendBeacon (fire-and-forget, fast)
+  // - fallback to fetch keepalive with a short timeout race
+  // - do not block redirect long; UX > perfect telemetry for pilot
+  async function postAndRedirect() {
+    const body = JSON.stringify(payload);
+
+    let beaconOk = false;
+    try {
+      const blob = new Blob([body], { type: "application/json" });
+      beaconOk = navigator.sendBeacon(RELAY_ENDPOINT, blob);
+    } catch (e) { /* ignore */ }
+
+    // If beacon works, redirect immediately
+    if (beaconOk) {
+      showDebug({ mode: "beacon", payload });
+      window.location.replace(dest);
+      return;
+    }
+
+    // Fetch fallback (keepalive). Don't hang UX—race with a short timer.
+    const controller = new AbortController();
+    const timeoutMs = 450; // keep it snappy (you saw ~487ms in your screenshot)
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const resp = await fetch(RELAY_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+        signal: controller.signal
+      }).catch(() => null);
+
+      clearTimeout(timer);
+
+      showDebug({
+        mode: "fetch",
+        status: resp ? resp.status : "no-response",
+        payload
+      });
+
+      // Either way, redirect now
+      window.location.replace(dest);
+    } catch (e) {
+      clearTimeout(timer);
+      showDebug({ mode: "fetch-error", error: String(e), payload });
+      window.location.replace(dest);
+    }
   }
+
+  // Kick off quickly
+  postAndRedirect();
 })();
 </script>
 </body>
