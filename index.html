@@ -2,484 +2,340 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Docebo → Relay → Watershed (xAPI Proof Console)</title>
+  <title>Docebo → Relay → Watershed (xAPI Test Console)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- IMPORTANT:
-    Do NOT put Watershed Key/Secret in this file. GitHub Pages is client-side.
-    This page should POST to YOUR relay server, which then forwards to Watershed.
-  -->
-
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self';
                  img-src 'self' data:;
                  style-src 'self' 'unsafe-inline';
-                 script-src 'self' 'unsafe-inline';
+                 script-src 'self';
                  connect-src 'self' https:;
                  frame-ancestors *;">
-
   <style>
-    :root{
-      --bg:#0b0c10; --panel:#11141a; --panel2:#0f131a; --border:#1e2633;
-      --text:#e8eef5; --muted:#9aa4b2;
-      --ok:#22c55e; --warn:#f59e0b; --bad:#f87171;
-      --btn:#334155; --btn2:#1f2937; --btn3:#7f1d1d;
+    :root { --bg:#0b0c10; --panel:#11141a; --text:#e8eef5; --muted:#9aa4b2; --ok:#22c55e; --warn:#f59e0b; --bad:#f87171; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .wrap { max-width: 980px; margin: 28px auto; padding: 0 16px; }
+    h1 { font-size: 1.15rem; margin: 0 0 12px; }
+    .card { background: var(--panel); border: 1px solid #1e2633; border-radius: 14px; padding: 16px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; align-items:flex-end; }
+    .row > * { flex: 1 1 240px; }
+    label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:6px; }
+    input, select, textarea {
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2a3140;
+      background:#0f131a; color:var(--text); box-sizing:border-box;
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
-    .wrap{max-width:980px;margin:28px auto;padding:0 16px;}
-    h1{font-size:1.15rem;margin:0 0 10px;}
-    .sub{color:var(--muted);margin:0 0 18px;}
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;}
-    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;}
-    .col-12{grid-column:span 12;}
-    .col-6{grid-column:span 6;}
-    .col-4{grid-column:span 4;}
-    .col-3{grid-column:span 3;}
-    @media (max-width:860px){ .col-6,.col-4,.col-3{grid-column:span 12;} }
-
-    label{display:block;font-size:.82rem;color:var(--muted);margin:0 0 6px;}
-    input,select,textarea{
-      width:100%; box-sizing:border-box;
-      padding:10px 12px; border-radius:10px; border:1px solid #2a3140;
-      background:var(--panel2); color:var(--text);
-    }
-    textarea{min-height:120px;resize:vertical;}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-    button{
-      cursor:pointer;border:0;border-radius:10px;padding:10px 14px;
-      background:var(--btn);color:#fff;font-weight:600;
-    }
-    button.secondary{background:var(--btn2);}
-    button.danger{background:var(--btn3);}
-    button:disabled{opacity:.55;cursor:not-allowed;}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-size:.85rem;}
-    .ok{background:rgba(34,197,94,.15);color:var(--ok);}
-    .warn{background:rgba(245,158,11,.15);color:var(--warn);}
-    .bad{background:rgba(248,113,113,.15);color:var(--bad);}
-    .mini{font-size:.85rem;color:var(--muted);}
-    .log{
-      max-height:260px; overflow:auto;
-      background:#0b0f14;border:1px solid #1f2430;border-radius:10px;
-      padding:10px; font-size:.9rem;
-      white-space:pre-wrap;
-    }
-    .hr{height:1px;background:#1b2230;margin:14px 0;}
-    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
-    .kpi > div{background:#0b0f14;border:1px solid #1f2430;border-radius:10px;padding:10px;}
-    .kpi .v{font-weight:700;}
-    .hint{font-size:.85rem;color:var(--muted);margin-top:8px;}
-    a{color:#93c5fd;}
+    textarea { min-height: 110px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    button { cursor:pointer; border:0; border-radius:10px; padding:10px 14px; background:#334155; color:#fff; }
+    button.secondary { background:#1f2937; }
+    button.danger { background:#7f1d1d; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-size:.85rem; }
+    .ok { background: rgba(34,197,94,.15); color: var(--ok); }
+    .warn { background: rgba(245,158,11,.15); color: var(--warn); }
+    .bad { background: rgba(248,113,113,.15); color: var(--bad); }
+    .log { max-height: 260px; overflow:auto; background:#0b0f14; border:1px solid #1f2430; border-radius: 10px; padding: 10px; font-size: .9rem; }
+    .muted { color: var(--muted); }
+    .small { font-size: .85rem; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
   </style>
 </head>
-
 <body>
   <div class="wrap">
-    <h1>Docebo → Relay → Watershed (xAPI Proof Console)</h1>
-    <p class="sub">
-      Use this to prove: <strong>who</strong> did <strong>what</strong> <strong>when</strong> (and optionally <strong>where</strong> they were sent).
-      This page posts to your <strong>relay server</strong>, which forwards to Watershed.
-    </p>
+    <h1>Docebo → Relay → Watershed (xAPI Test Console)</h1>
 
     <div class="card">
-      <div class="grid">
-        <!-- Relay -->
-        <div class="col-12">
-          <label>Relay endpoint (POST) — this is YOUR server (not Watershed)</label>
-          <input id="relayEndpoint" class="mono" />
-          <div class="hint">
-            Tip: Keep Watershed Key/Secret on the relay server only (env vars). Don’t embed secrets in GitHub Pages.
-          </div>
+      <div class="row">
+        <div>
+          <label>Relay endpoint (POST) — this is your Render server</label>
+          <input id="relay" class="mono" value="https://xapi-tracking.onrender.com/track" />
+          <div class="small muted">Keep Watershed Key/Secret on the relay server only (Render env vars).</div>
         </div>
+        <div>
+          <label>Activity/Object ID (stable identifier)</label>
+          <input id="activity" class="mono" value="https://docebo-netflix.github.io/xapi-tracking/" />
+        </div>
+      </div>
 
-        <!-- Actor -->
-        <div class="col-4">
+      <div class="grid2">
+        <div>
           <label>Actor user_id (preferred join key)</label>
-          <input id="actorUserId" class="mono" placeholder="e.g., 123456" />
+          <input id="user_id" placeholder="e.g., 123456" />
         </div>
-        <div class="col-4">
+        <div>
           <label>Actor username</label>
-          <input id="actorUsername" placeholder="e.g., jane.doe" />
+          <input id="username" placeholder="e.g., Ed" />
         </div>
-        <div class="col-4">
-          <label>Actor email (optional)</label>
-          <input id="actorEmail" placeholder="e.g., jane.doe@company.com" />
-        </div>
+      </div>
 
-        <!-- Action + object -->
-        <div class="col-6">
-          <label>Action key (what was clicked)</label>
-          <input id="actionKey" class="mono" value="hub_asset_click" />
+      <div class="grid2" style="margin-top:12px">
+        <div>
+          <label>Actor email (optional; usually not provided by Docebo iFrame)</label>
+          <input id="email" placeholder="edwardin@netflixcontractors.com" />
         </div>
-        <div class="col-6">
-          <label>Activity/Object ID (stable identifier for reporting)</label>
-          <input id="activityId" class="mono" value="https://docebo-netflix.github.io/xapi-tracking/" />
-        </div>
-
-        <!-- Destination + context -->
-        <div class="col-6">
-          <label>Destination URL (where user is going)</label>
-          <input id="destinationUrl" class="mono" placeholder="https://..." />
-        </div>
-        <div class="col-6">
-          <label>Referrer / Page URL (optional)</label>
-          <input id="referrerUrl" class="mono" placeholder="auto-filled when possible" />
-        </div>
-
-        <!-- Verb -->
-        <div class="col-4">
+        <div>
           <label>Verb</label>
           <select id="verb">
             <option value="initialized">initialized (Start)</option>
-            <option value="interacted" selected>interacted (Heartbeat/Click)</option>
+            <option value="interacted" selected>interacted (Click/Heartbeat)</option>
             <option value="terminated">terminated (Stop)</option>
           </select>
         </div>
-        <div class="col-4">
-          <label>Heartbeat interval (seconds)</label>
-          <input id="hbInterval" type="number" min="5" step="1" value="30" />
-        </div>
-        <div class="col-4">
-          <label>Auto-heartbeat</label>
-          <select id="hbEnabled">
-            <option value="off" selected>Off</option>
-            <option value="on">On</option>
-          </select>
-        </div>
+      </div>
 
-        <!-- Docebo params (debug) -->
-        <div class="col-12">
-          <label>Docebo iframe params detected (debug)</label>
-          <textarea id="doceboParams" class="mono" readonly></textarea>
-          <div class="hint">
-            If this page is loaded inside a Docebo iFrame widget with Advanced Settings, you may see:
-            <span class="mono">user_id</span>, <span class="mono">username</span>, <span class="mono">auth_code</span>, <span class="mono">hash</span>.
-          </div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Action key (what happened)</label>
+          <input id="action" value="hub_asset_click" />
         </div>
-
-        <!-- Controls -->
-        <div class="col-12">
-          <div class="row">
-            <button id="startBtn">Start (initialized)</button>
-            <button id="sendBtn" class="secondary">Send event</button>
-            <button id="stopBtn" class="danger">Stop (terminated)</button>
-            <span id="status" class="pill warn">idle</span>
-          </div>
-          <div class="hint">
-            “Start” sets a session start timestamp. “Send event” uses the verb dropdown. “Stop” ends the session.
-          </div>
-        </div>
-
-        <!-- KPIs -->
-        <div class="col-12">
-          <div class="kpi">
-            <div><div class="mini">Session started</div><div class="v mono" id="startedAt">—</div></div>
-            <div><div class="mini">Now</div><div class="v mono" id="now">—</div></div>
-            <div><div class="mini">Duration (s)</div><div class="v mono" id="duration">0</div></div>
-            <div><div class="mini">Last POST (ms)</div><div class="v mono" id="lastMs">—</div></div>
-          </div>
-        </div>
-
-        <div class="col-12"><div class="hr"></div></div>
-
-        <!-- Payload preview -->
-        <div class="col-12">
-          <label>Payload preview (what will be POSTed to your relay)</label>
-          <textarea id="payloadPreview" class="mono" readonly></textarea>
-          <div class="row" style="margin-top:10px;">
-            <button id="copyPayload" class="secondary">Copy payload JSON</button>
-            <button id="clearLog" class="secondary">Clear log</button>
-          </div>
-        </div>
-
-        <!-- Redirect test helper -->
-        <div class="col-12">
-          <label>Redirect test URL builder (optional)</label>
-          <div class="grid">
-            <div class="col-6">
-              <label class="mini">Tracking Redirect page URL (Docebo page URL)</label>
-              <input id="redirectPageUrl" class="mono" placeholder="https://<your-docebo>/pages/<id>" />
-            </div>
-            <div class="col-6">
-              <label class="mini">Generated URL (dest+act)</label>
-              <input id="redirectBuiltUrl" class="mono" readonly />
-            </div>
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <button id="buildRedirect" class="secondary">Build URL</button>
-            <button id="openRedirect" class="secondary">Open built URL</button>
-          </div>
-          <div class="hint">
-            This helps you quickly test the “hub link → redirect page → redirect.html → destination” flow.
-          </div>
-        </div>
-
-        <!-- Log -->
-        <div class="col-12">
-          <label>Log</label>
-          <div id="log" class="log mono"></div>
-          <p class="hint">Tip: Open DevTools → Network and filter by your relay endpoint path to see the POSTs.</p>
+        <div>
+          <label>Destination URL (optional)</label>
+          <input id="dest" class="mono" placeholder="https://..." />
         </div>
       </div>
+
+      <div class="row">
+        <div>
+          <label>Referrer/Page URL (optional)</label>
+          <input id="ref" class="mono" placeholder="https://netflixsandbox.docebosaas.com/pages/..." />
+        </div>
+        <div>
+          <label>Auto-heartbeat</label>
+          <select id="autoBeat">
+            <option value="off" selected>Off</option>
+            <option value="on">On (every 30s)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="sendBtn">Send event</button>
+        <button class="secondary" id="startBtn">Start session</button>
+        <button class="danger" id="stopBtn">Stop session</button>
+        <span id="status" class="pill warn">idle</span>
+      </div>
+
+      <div class="row small muted">
+        <div>Last POST (ms): <span class="mono" id="lastMs">—</span></div>
+        <div>Now: <span class="mono" id="now">—</span></div>
+      </div>
+
+      <div class="row">
+        <div style="flex: 1 1 100%">
+          <label>Docebo iframe params detected (debug)</label>
+          <textarea id="detected" class="mono" readonly>(loading...)</textarea>
+          <div class="small muted">
+            If this shows nothing, Docebo may not be injecting signed params in this view (try published learner view).
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex: 1 1 100%">
+          <label>Payload preview (what will be POSTed to your relay)</label>
+          <textarea id="payloadPreview" class="mono" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="secondary" id="copyBtn">Copy payload JSON</button>
+        <button class="secondary" id="clearBtn">Clear log</button>
+      </div>
+
+      <div class="log mono" id="log"></div>
+
+      <hr style="border:0;border-top:1px solid #1e2633;margin:16px 0">
+
+      <div class="row">
+        <div style="flex:1 1 520px">
+          <label>Redirect test URL builder (optional)</label>
+          <div class="small muted">Build a URL you can paste into the Hub as a link target.</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>Redirect page URL (GitHub Pages)</label>
+          <input id="redirectBase" class="mono" value="https://docebo-netflix.github.io/xapi-tracking/redirect.html" />
+        </div>
+        <div>
+          <label>Generated redirect URL</label>
+          <input id="generatedUrl" class="mono" readonly />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="secondary" id="buildUrlBtn">Build URL</button>
+        <button class="secondary" id="openUrlBtn">Open built URL</button>
+      </div>
+
+      <p class="small muted">
+        Tip: open DevTools → Network and filter for <span class="mono">/track</span> to verify POSTs and timing.
+      </p>
     </div>
   </div>
 
 <script>
-(() => {
-  // ======= CONFIG =======
-  const DEFAULT_RELAY_ENDPOINT = "https://xapi-tracking.onrender.com/track"; // <-- change if your relay URL changed
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const logEl = $("log");
+  const statusEl = $("status");
+  const payloadEl = $("payloadPreview");
+  const detectedEl = $("detected");
+  const lastMsEl = $("lastMs");
+  const nowEl = $("now");
 
-  // ======= ELEMENTS =======
-  const el = (id) => document.getElementById(id);
-  const relayEndpoint = el("relayEndpoint");
-  const actorUserId = el("actorUserId");
-  const actorUsername = el("actorUsername");
-  const actorEmail = el("actorEmail");
-  const actionKey = el("actionKey");
-  const activityId = el("activityId");
-  const destinationUrl = el("destinationUrl");
-  const referrerUrl = el("referrerUrl");
-  const verb = el("verb");
-  const hbInterval = el("hbInterval");
-  const hbEnabled = el("hbEnabled");
-  const doceboParams = el("doceboParams");
+  let beatTimer = null;
 
-  const startBtn = el("startBtn");
-  const sendBtn  = el("sendBtn");
-  const stopBtn  = el("stopBtn");
-  const status   = el("status");
+  function log(msg) {
+    const t = new Date().toLocaleTimeString();
+    logEl.textContent = `[${t}] ${msg}\n` + logEl.textContent;
+  }
 
-  const startedAt = el("startedAt");
-  const nowEl     = el("now");
-  const duration  = el("duration");
-  const lastMs    = el("lastMs");
-  const payloadPreview = el("payloadPreview");
-  const copyPayload = el("copyPayload");
-  const clearLog = el("clearLog");
-  const log = el("log");
+  function setStatus(kind, text) {
+    statusEl.className = `pill ${kind}`;
+    statusEl.textContent = text;
+  }
 
-  const redirectPageUrl = el("redirectPageUrl");
-  const redirectBuiltUrl = el("redirectBuiltUrl");
-  const buildRedirect = el("buildRedirect");
-  const openRedirect  = el("openRedirect");
+  function qs() {
+    return new URLSearchParams(location.search);
+  }
 
-  // ======= STATE =======
-  let sessionStart = null;
-  let hbTimer = null;
-  let lastPayload = null;
+  function detectDoceboParams() {
+    const p = qs();
+    const keys = ["user_id","username","auth_code","hash","signature","uid","user","email"];
+    const found = {};
+    keys.forEach(k => {
+      if (p.has(k)) found[k] = p.get(k);
+    });
+    detectedEl.value = Object.keys(found).length ? JSON.stringify(found, null, 2) : "(none detected)";
+    return found;
+  }
 
-  // ======= HELPERS =======
-  const isoNow = () => new Date().toISOString();
-  const setPill = (mode, text) => {
-    status.classList.remove("ok","warn","bad");
-    status.classList.add(mode);
-    status.textContent = text;
-  };
-  const appendLog = (msg) => {
-    const line = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-    log.textContent = line + log.textContent;
-  };
+  function buildPayload(verbOverride) {
+    const detected = detectDoceboParams();
 
-  const buildPayload = (verbValue) => {
+    const relay = $("relay").value.trim();
+    const activity_id = $("activity").value.trim();
+    const action = $("action").value.trim();
+    const destination = $("dest").value.trim();
+    const referrer = $("ref").value.trim() || document.referrer || "";
+
+    // Prefer Docebo params if present
+    const user_id = detected.user_id || $("user_id").value.trim();
+    const username = detected.username || $("username").value.trim();
+    const email = detected.email || $("email").value.trim();
+
+    const verb = verbOverride || $("verb").value;
+
     const payload = {
-      meta: {
-        sent_at: isoNow(),
-        session_id: sessionStart ? `sess_${sessionStart.getTime()}` : null
-      },
+      type: "docebo_hub_event",
+      verb,
+      action,
+      activity_id,
+      destination,
+      referrer,
       actor: {
-        user_id: actorUserId.value.trim() || null,
-        username: actorUsername.value.trim() || null,
-        email: actorEmail.value.trim() || null
+        user_id: user_id || "",
+        username: username || "",
+        email: email || ""
       },
-      verb: verbValue,
-      action: actionKey.value.trim() || "unknown_action",
-      activity_id: activityId.value.trim() || null,
-      destination: destinationUrl.value.trim() || null,
-      referrer: referrerUrl.value.trim() || document.referrer || null,
-      client: {
-        user_agent: navigator.userAgent,
-        url: location.href
-      }
+      context: {
+        page_url: location.href,
+        user_agent: navigator.userAgent
+      },
+      timestamp: new Date().toISOString()
     };
-    return payload;
-  };
 
-  const refreshPreview = () => {
-    lastPayload = buildPayload(verb.value);
-    payloadPreview.value = JSON.stringify(lastPayload, null, 2);
+    payloadEl.value = JSON.stringify(payload, null, 2);
+    return { relay, payload };
+  }
 
-    // Build redirect URL helper if possible
-    const base = redirectPageUrl.value.trim();
-    const dest = destinationUrl.value.trim();
-    const act  = actionKey.value.trim() || "unknown_action";
-    if (base && dest) {
-      const u = new URL(base);
-      u.searchParams.set("dest", dest);
-      u.searchParams.set("act", act);
-      redirectBuiltUrl.value = u.toString();
-    } else {
-      redirectBuiltUrl.value = "";
-    }
-  };
-
-  const postToRelay = async (payload) => {
-    const endpoint = relayEndpoint.value.trim();
+  async function postToRelay(verbOverride) {
     const t0 = performance.now();
+    const { relay, payload } = buildPayload(verbOverride);
+
+    if (!relay) {
+      setStatus("bad","missing relay");
+      log("ERROR: relay endpoint is empty.");
+      return;
+    }
+
     try {
-      const resp = await fetch(endpoint, {
+      setStatus("warn","sending...");
+      const resp = await fetch(relay, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type":"application/json" },
         body: JSON.stringify(payload),
         keepalive: true
       });
-      const t1 = performance.now();
-      lastMs.textContent = Math.round(t1 - t0).toString();
+      const ms = Math.round(performance.now() - t0);
+      lastMsEl.textContent = String(ms);
+
+      const txt = await resp.text().catch(()=> "");
       if (!resp.ok) {
-        const text = await resp.text().catch(()=>"");
-        appendLog(`❌ POST failed (${resp.status}): ${text || "(no body)"}`);
-        setPill("bad", "error");
-        return false;
+        setStatus("bad",`HTTP ${resp.status}`);
+        log(`FAIL ${resp.status} in ${ms}ms: ${txt || "(no body)"}`);
+        return;
       }
-      appendLog(`✅ POST ok (${resp.status}) in ${Math.round(t1 - t0)}ms — verb=${payload.verb} action=${payload.action}`);
-      setPill("ok", "sent");
-      return true;
+      setStatus("ok","sent");
+      log(`POST ok (${resp.status}) in ${ms}ms — verb=${payload.verb} action=${payload.action}`);
     } catch (e) {
-      const t1 = performance.now();
-      lastMs.textContent = Math.round(t1 - t0).toString();
-      appendLog(`❌ POST error: ${String(e)}`);
-      setPill("bad", "error");
-      return false;
+      setStatus("bad","error");
+      log(`ERROR: ${String(e)}`);
     }
-  };
-
-  const tickClock = () => {
-    nowEl.textContent = isoNow();
-    if (!sessionStart) {
-      duration.textContent = "0";
-      return;
-    }
-    const secs = Math.max(0, Math.round((Date.now() - sessionStart.getTime()) / 1000));
-    duration.textContent = String(secs);
-  };
-
-  const startSession = async () => {
-    sessionStart = new Date();
-    startedAt.textContent = sessionStart.toISOString();
-    setPill("warn", "starting…");
-    refreshPreview();
-
-    const payload = buildPayload("initialized");
-    await postToRelay(payload);
-
-    maybeStartHeartbeat();
-  };
-
-  const stopSession = async () => {
-    setPill("warn", "stopping…");
-    refreshPreview();
-
-    const payload = buildPayload("terminated");
-    await postToRelay(payload);
-
-    clearHeartbeat();
-    sessionStart = null;
-    startedAt.textContent = "—";
-    duration.textContent = "0";
-  };
-
-  const sendEvent = async () => {
-    if (!sessionStart) {
-      appendLog("⚠️ No active session. Click Start first (recommended), but sending anyway.");
-    }
-    setPill("warn", "sending…");
-    refreshPreview();
-    const payload = buildPayload(verb.value);
-    await postToRelay(payload);
-  };
-
-  const clearHeartbeat = () => {
-    if (hbTimer) clearInterval(hbTimer);
-    hbTimer = null;
-  };
-
-  const maybeStartHeartbeat = () => {
-    clearHeartbeat();
-    const enabled = hbEnabled.value === "on";
-    const intervalSec = Math.max(5, Number(hbInterval.value || 30));
-    if (!enabled) return;
-
-    hbTimer = setInterval(() => {
-      const payload = buildPayload("interacted");
-      postToRelay(payload);
-    }, intervalSec * 1000);
-
-    appendLog(`⏱️ Auto-heartbeat ON every ${intervalSec}s`);
-  };
-
-  // ======= INIT =======
-  relayEndpoint.value = DEFAULT_RELAY_ENDPOINT;
-  referrerUrl.value = document.referrer || "";
-
-  // If loaded with Docebo iframe params, auto-fill actor fields
-  const qs = new URLSearchParams(location.search);
-  const detected = {};
-  for (const k of ["user_id", "username", "auth_code", "hash"]) {
-    const v = qs.get(k);
-    if (v) detected[k] = v;
   }
-  doceboParams.value = Object.keys(detected).length
-    ? JSON.stringify(detected, null, 2)
-    : "(none detected)";
 
-  if (qs.get("user_id") && !actorUserId.value) actorUserId.value = qs.get("user_id");
-  if (qs.get("username") && !actorUsername.value) actorUsername.value = qs.get("username");
+  function updateClock() { nowEl.textContent = new Date().toISOString(); }
 
-  // Live preview updates
-  const watched = [
-    relayEndpoint, actorUserId, actorUsername, actorEmail,
-    actionKey, activityId, destinationUrl, referrerUrl,
-    verb, hbInterval, hbEnabled, redirectPageUrl
-  ];
-  watched.forEach(x => x.addEventListener("input", refreshPreview));
-  watched.forEach(x => x.addEventListener("change", refreshPreview));
+  $("sendBtn").addEventListener("click", () => postToRelay());
+  $("startBtn").addEventListener("click", () => postToRelay("initialized"));
+  $("stopBtn").addEventListener("click", () => postToRelay("terminated"));
 
-  startBtn.addEventListener("click", startSession);
-  stopBtn.addEventListener("click", stopSession);
-  sendBtn.addEventListener("click", sendEvent);
+  $("copyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(payloadEl.value); log("Copied payload JSON."); }
+    catch { log("Could not copy (browser blocked)."); }
+  });
 
-  copyPayload.addEventListener("click", async () => {
-    refreshPreview();
-    try {
-      await navigator.clipboard.writeText(payloadPreview.value);
-      appendLog("📋 Copied payload JSON to clipboard.");
-    } catch {
-      appendLog("⚠️ Clipboard copy failed (browser permissions). Select text and copy manually.");
+  $("clearBtn").addEventListener("click", () => logEl.textContent = "");
+
+  $("autoBeat").addEventListener("change", (e) => {
+    if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
+    if (e.target.value === "on") {
+      beatTimer = setInterval(() => postToRelay("interacted"), 30000);
+      log("Auto-heartbeat enabled (30s).");
+    } else {
+      log("Auto-heartbeat disabled.");
     }
   });
 
-  clearLog.addEventListener("click", () => { log.textContent = ""; });
-
-  buildRedirect.addEventListener("click", refreshPreview);
-  openRedirect.addEventListener("click", () => {
-    refreshPreview();
-    if (!redirectBuiltUrl.value) {
-      appendLog("⚠️ Add Redirect page URL + Destination URL to build a redirect test link.");
-      return;
-    }
-    window.open(redirectBuiltUrl.value, "_blank", "noopener,noreferrer");
-    appendLog("🔗 Opened redirect test URL in a new tab.");
+  $("buildUrlBtn").addEventListener("click", () => {
+    const base = $("redirectBase").value.trim();
+    const { payload } = buildPayload(); // uses current form values
+    const u = new URL(base);
+    u.searchParams.set("dest", $("dest").value.trim() || "https://netflixsandbox.docebosaas.com/");
+    u.searchParams.set("act", $("action").value.trim() || "hub_asset_click");
+    u.searchParams.set("aid", $("activity").value.trim());
+    // don't pass secrets; passing actor values is optional for testing only
+    if ($("email").value.trim()) u.searchParams.set("email", $("email").value.trim());
+    if ($("username").value.trim()) u.searchParams.set("username", $("username").value.trim());
+    if ($("user_id").value.trim()) u.searchParams.set("user_id", $("user_id").value.trim());
+    $("generatedUrl").value = u.toString();
+    log("Built redirect URL.");
   });
 
-  hbEnabled.addEventListener("change", maybeStartHeartbeat);
-  hbInterval.addEventListener("change", maybeStartHeartbeat);
+  $("openUrlBtn").addEventListener("click", () => {
+    const url = $("generatedUrl").value.trim();
+    if (!url) return log("No generated URL yet.");
+    window.open(url, "_blank", "noopener,noreferrer");
+  });
 
-  setInterval(tickClock, 250);
-  refreshPreview();
-  tickClock();
-
-  appendLog("Ready. Set Destination URL + Action Key, then Start → (auto-heartbeat optional) → Stop.");
+  // init
+  detectDoceboParams();
+  buildPayload();
+  updateClock();
+  setInterval(updateClock, 1000);
 })();
 </script>
-
 </body>
 </html>
